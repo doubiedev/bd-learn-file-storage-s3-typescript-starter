@@ -1,0 +1,49 @@
+### 
+
+@loginURL = http://localhost:8091/api/login
+@thumbnailFileURL = /home/nd/projects/tutorials/boot.dev/20-learn-file-storage-s3-typescript/samples/boots-image-horizontal.png
+@thumbnailURL = http://localhost:8091/api/thumbnail_upload
+@videosURL = http://localhost:8091/api/videos
+
+
+### login
+
+POST {{loginURL}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "{{AUTH_EMAIL}}",
+  "password": "{{AUTH_PASSWORD}}"
+}
+
+
+### video
+
+POST {{videosURL}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.$.token}}
+
+{
+  "description": "test video description",
+  "title": "test video",
+  "userID": "{{login.response.body.$.user.id}}"
+}
+
+
+### update-video-thumbnail
+
+@content_type = image/png
+@filename = boots-image-horizontal.png
+@filepath = ./samples/boots-image-horizontal.png
+
+POST {{thumbnailURL}}/{{video.response.body.$.id}} HTTP/1.1
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary{{$timestamp}}
+
+------WebKitFormBoundary{{$timestamp}}
+Content-Disposition: form-data; name="thumbnail"; filename="{{filename}}"
+Content-Type: {{content_type}}
+
+< {{filepath}}
+
+------WebKitFormBoundary{{$timestamp}}--
