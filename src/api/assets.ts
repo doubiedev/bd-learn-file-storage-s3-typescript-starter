@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync } from "fs";
+import { randomBytes } from "crypto";
 import path from "path";
 
 import type { ApiConfig } from "../config";
@@ -7,6 +8,13 @@ export function ensureAssetsDir(cfg: ApiConfig) {
     if (!existsSync(cfg.assetsRoot)) {
         mkdirSync(cfg.assetsRoot, { recursive: true });
     }
+}
+
+export function getAssetPath(mediaType: string) {
+    const base = randomBytes(32);
+    const id = base.toString("base64url");
+    const ext = mediaTypeToExt(mediaType);
+    return id + ext;
 }
 
 export function mediaTypeToExt(mediaType: string) {
