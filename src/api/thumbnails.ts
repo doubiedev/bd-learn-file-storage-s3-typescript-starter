@@ -1,15 +1,9 @@
 import { getBearerToken, validateJWT } from "../auth";
 import { respondWithJSON } from "./json";
 import { getVideo, updateVideo } from "../db/videos";
-import { getInMemoryURL } from "./assets";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
-
-type Thumbnail = {
-    data: ArrayBuffer;
-    mediaType: string;
-};
 
 export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
     const { videoId } = req.params as { videoId?: string };
@@ -51,10 +45,11 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
     if (!fileData) {
         throw new Error("Error reading file data");
     }
-    const buffer = Buffer.from(fileData).toString("base64");
-    const dataURL = `data:${mediaType};base64,${buffer}`;
 
-    video.thumbnailURL = dataURL;
+    const base64Encoded = Buffer.from(fileData).toString("base64");
+    const base64DataURL = `data:${mediaType};base64,${base64Encoded}`;
+
+    video.thumbnailURL = base64DataURL;
     updateVideo(cfg.db, video);
 
     return respondWithJSON(200, video);
