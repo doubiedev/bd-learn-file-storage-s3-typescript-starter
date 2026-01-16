@@ -43,9 +43,9 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
     const tempFilePath = path.join("/tmp", `${videoId}.mp4`);
     await Bun.write(tempFilePath, file);
 
-    const videoAspectRatio = await getVideoAspectRatio(tempFilePath);
+    const aspectRatio = await getVideoAspectRatio(tempFilePath);
 
-    let key = `${videoAspectRatio}/${videoId}.mp4`;
+    let key = `${aspectRatio}/${videoId}.mp4`;
     await uploadVideoToS3(cfg, key, tempFilePath, "video/mp4");
 
     const videoURL = `https://${cfg.s3Bucket}.s3.${cfg.s3Region}.amazonaws.com/${key}`;
@@ -58,30 +58,44 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
 }
 
 export async function getVideoAspectRatio(filePath: string) {
-    const proc = Bun.spawn({
-        cmd: ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "json", filePath],
-        stdout: "pipe",
-        stderr: "pipe",
-    })
-    const stdoutText = await new Response(proc.stdout).text();
-    const stderrText = await new Response(proc.stderr).text();
+    const process = Bun.spawn(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "json",
+            filePath,
+        ],
+        {
+            stdout: "pipe",
+            stderr: "pipe",
+        },
+    );
 
-    if (await proc.exited !== 0) {
-        throw new Error(`ffprobe exited with code ${proc.exitCode}: ${stderrText}`);
+    const outputText = await new Response(process.stdout).text();
+    const errorText = await new Response(process.stderr).text();
+
+    const exitCode = await process.exited;
+
+    if (exitCode !== 0) {
+        throw new Error(`ffprobe error: ${errorText}`);
     }
 
-    const json = JSON.parse(stdoutText);
-    const width = json.streams[0].width;
-    const height = json.streams[0].height;
-    const ratio = width / height;
-
-    let aspectRatio = "other";
-    if (Math.floor(ratio) === Math.floor(16 / 9)) {
-        aspectRatio = "landscape";
-    }
-    if (Math.floor(ratio) === Math.floor(9 / 16)) {
-        aspectRatio = "portrait";
+    const output = JSON.parse(outputText);
+    if (!output.streams || output.streams.length === 0) {
+        throw new Error("No video streams found");
     }
 
-    return aspectRatio;
+    const { width, height } = output.streams[0];
+
+    return width === Math.floor(16 * (height / 9))
+        ? "landscape"
+        : height === Math.floor(16 * (width / 9))
+            ? "portrait"
+            : "other";
 }
